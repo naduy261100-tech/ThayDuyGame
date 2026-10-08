@@ -113,7 +113,7 @@ main{max-width:1180px;margin:auto;padding:14px 20px 30px}.screen{display:none}.s
     <div id="calInfo" class="calInfo">Giữ đầu ở tư thế bình thường, nhìn vào camera rồi bấm nút bên dưới.</div>
     <div class="calSample"><div><b id="sampleN">—</b><span>Thẳng</span></div><div><b id="sampleR">—</b><span>Phải</span></div><div><b id="sampleL">—</b><span>Trái</span></div></div>
     <div id="calLive" class="calLive">Camera đang chuẩn bị…</div>
-    <div class="buttons"><button id="calBtn" class="btn primary" onclick="captureCalibration()">GHI NHẬN TƯ THẾ NÀY</button><button id="calSkip" class="btn" onclick="cancelCalibration()">HỦY</button></div>
+    <div class="buttons"><button id="calBtn" class="btn primary">GHI NHẬN TƯ THẾ NÀY</button><button id="calSkip" class="btn" onclick="cancelCalibration()">HỦY</button></div>
   </div>
 </div>
 
@@ -273,7 +273,7 @@ async function captureCalibration(){
   if(Math.abs(sample-neutralAngle)<8){$("calInfo").textContent="Mức nghiêng trái chưa đủ rõ. Hãy nghiêng rõ hơn rồi bấm lại.";return}
   if(Math.sign(sample-neutralAngle)===Math.sign(rightAngle-neutralAngle)){$("calInfo").textContent="Webcam thấy hai hướng giống nhau. Hãy làm lại: phải ở một phía, trái ở phía đối diện.";calMode="right";calSamples=[];return}
   leftAngle=sample;$("sampleL").textContent=sample.toFixed(1)+"°";calMode="idle";$("calInfo").textContent="Hiệu chỉnh thành công. → ĐÚNG • ← SAI";$("calStep").textContent="HOÀN TẤT";$("calBig").textContent="SẴN SÀNG CHƠI";$("calBtn").textContent="BẮT ĐẦU";calibrationResolver=true}
-function cancelCalibration(){if(calMode!=="idle"&&neutralAngle===null){$("calibrationModal").classList.remove("show");running=false;showScreen("home")}else{$("calibrationModal").classList.remove("show");if(!running)showScreen("home")}calMode="idle";calSamples=[]}
+function cancelCalibration(){const wasRunning=running;$("calibrationModal").classList.remove("show");calMode="idle";calSamples=[];angleHistory=[];if(wasRunning){answerLocked=false;lastDetectedSide=null;lastDetectedAt=0;startQuestion()}else{running=false;showScreen("home")}}
 function recalibrate(){
   if(!landmarker){initCamera().then(()=>openCalibration()).catch(e=>alert("Không thể mở webcam: "+e.message));return}
   answerLocked=true;clearInterval(timerId);openCalibration();
