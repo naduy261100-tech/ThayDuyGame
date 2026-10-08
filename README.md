@@ -1,2 +1,2 @@
-# Tr-ch-i-Th-y-Duy
+# GameThayDuy
 Các trò chơi tương tác học sinh Tiểu hcoj
