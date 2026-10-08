@@ -64,7 +64,7 @@ main{max-width:1180px;margin:auto;padding:14px 20px 28px}.screen{display:none}.s
 
 <script type="module">
 import{FilesetResolver,FaceLandmarker}from"https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22-rc.20250304/vision_bundle.mjs";
-const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",""":"&quot;","'":"&#39;"}[m]));
+const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
 const sample=[["5 × 6 = 30.",true,"5 nhân 6 bằng 30."],["Phân số 3/4 bé hơn 2/4.",false,"Cùng mẫu số 4, 3/4 lớn hơn 2/4."],["Nước có thể tồn tại ở thể rắn, thể lỏng và thể khí.",true,"Nước có ba thể: rắn, lỏng và khí."],["1 km = 100 m.",false,"1 km = 1 000 m."],["Hình vuông có bốn cạnh bằng nhau.",true,"Bốn cạnh hình vuông có độ dài bằng nhau."],["Mặt Trời là một ngôi sao.",true,"Mặt Trời là một ngôi sao gần Trái Đất."],["Số 0 là số tự nhiên lớn nhất.",false,"Số tự nhiên không có số lớn nhất."],["Một giờ có 60 phút.",true,"1 giờ = 60 phút."],["Tam giác có bốn cạnh.",false,"Tam giác có ba cạnh."],["Cây xanh cần ánh sáng để quang hợp.",true,"Ánh sáng cần cho quá trình quang hợp."]];
 let qs=JSON.parse(localStorage.getItem("nd_qs")||"null")||sample.map(x=>({text:x[0],a:x[1],e:x[2],time:null}));
 let st=Object.assign({time:5,map:"rightTrue",music:"bright",musicOn:true,vol:45,font:"normal",showCam:true,showMap:true,camSize:"normal"},JSON.parse(localStorage.getItem("nd_st")||"{}"));
