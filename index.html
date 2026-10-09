@@ -99,7 +99,7 @@ main{max-width:1240px;margin:auto;padding:12px 16px 30px}.screen{display:none}.s
     <div class="progress"><i id="progressBar"></i></div>
     <div class="gameLayout">
       <section class="card questionCard"><div id="gameLabel" class="qLabel">CÂU 1</div><div id="gameQuestion" class="qText">—</div><div class="options"><div class="opt"><b>A</b><span id="gameA"></span></div><div class="opt"><b>B</b><span id="gameB"></span></div><div class="opt"><b>C</b><span id="gameC"></span></div><div class="opt"><b>D</b><span id="gameD"></span></div></div><div id="gameTimer" class="timer">20</div><div class="hint">Xoay thẻ sao cho đáp án muốn chọn nằm ở <b>cạnh trên</b>.</div><div id="liveList" class="live"></div></section>
-      <aside class="card side"><h3>ĐIỆN THOẠI GIÁO VIÊN</h3><img id="connectQR" class="joinQR" alt="QR kết nối điện thoại"><div id="roomCode" class="room">—</div><div id="connectionStatus" class="connectLine">Đang tạo phiên kết nối…</div><div class="sideHelp">Quét QR này bằng điện thoại giáo viên. Sau khi liên kết, điện thoại giữ kết nối trong suốt cả bài.</div><div class="stats"><div class="stat blueStat">ĐÃ NHẬN<b id="sideReceived">0</b></div><div class="stat greenStat">ĐÚNG<b id="sideCorrect">0</b></div></div><div class="buttons"><button id="copyPhoneLink" class="btn">SAO CHÉP LINK</button><button id="openPhoneLink" class="btn">MỞ LINK</button></div><div class="notice">Mẹo: mở link trên điện thoại bằng trình duyệt Chrome/Safari. Lần đầu quét, bấm <b>MỞ CAMERA</b> và cho phép dùng camera.</div></aside>
+      <aside class="card side"><h3>ĐIỆN THOẠI GIÁO VIÊN</h3><img id="connectQR" class="joinQR" alt="QR kết nối điện thoại"><div id="roomCode" class="room">—</div><div id="connectionStatus" class="connectLine">Đang tạo phiên kết nối…</div><div class="sideHelp">Quét QR này bằng điện thoại giáo viên. Sau khi liên kết, điện thoại giữ kết nối trong suốt cả bài.</div><div class="stats"><div class="stat blueStat">ĐÃ NHẬN<b id="sideReceived">0</b></div><div class="stat greenStat">ĐÚNG<b id="sideCorrect">0</b></div></div><div class="buttons"><button id="copyPhoneLink" class="btn">SAO CHÉP LINK</button><button id="openPhoneLink" class="btn">MỞ LINK</button><button id="retryConnection" class="btn danger">THỬ KẾT NỐI LẠI</button></div><div class="notice">Mẹo: mở link trên điện thoại bằng trình duyệt Chrome/Safari. Lần đầu quét, bấm <b>MỞ CAMERA</b> và cho phép dùng camera.</div></aside>
     </div>
     <div class="buttons"><button id="prevQuestion" class="btn">← CÂU TRƯỚC</button><button id="nextQuestion" class="btn primary">CÂU TIẾP →</button><button id="gameCards" class="btn">THẺ QR</button></div>
   </section>
@@ -153,7 +153,37 @@ function esc(v){return String(v).replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;"
 function student(no){return db.students.find(s=>+s.no===+no)||null}
 function uniqueRoom(){return "TD-"+Math.random().toString(36).slice(2,8).toUpperCase()}
 function studentQR(no){return "TDSTUDENT|"+String(no).padStart(2,"0")}
-function makeQR(data,size=6){try{const qr=qrcode(0,"M");qr.addData(String(data));qr.make();return qr.createDataURL(size,0)}catch(e){console.error(e);return ""}}
+const libraryLoads={};
+function loadLibraryWithFallback(name,urls,test){
+  if(test())return Promise.resolve(true);
+  if(libraryLoads[name])return libraryLoads[name];
+  libraryLoads[name]=new Promise(resolve=>{
+    let index=0;
+    const next=()=>{
+      if(test()){resolve(true);return}
+      if(index>=urls.length){resolve(false);return}
+      const script=document.createElement("script");
+      script.src=urls[index++];script.async=true;
+      script.onload=()=>{if(test())resolve(true);else next()};
+      script.onerror=next;
+      document.head.appendChild(script);
+    };
+    next();
+  });
+  return libraryLoads[name];
+}
+async function ensureCoreLibraries(){
+  const [peerOK,qrOK,scanOK]=await Promise.all([
+    loadLibraryWithFallback("peer",["https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js","https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"],()=>typeof window.Peer==="function"),
+    loadLibraryWithFallback("qr",["https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"],()=>typeof window.qrcode==="function"),
+    loadLibraryWithFallback("scanner",["https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"],()=>typeof window.jsQR==="function"||("BarcodeDetector" in window))
+  ]);
+  if(!peerOK)throw new Error("Không tải được thư viện kết nối. Hãy thử làm mới trang hoặc đổi mạng Internet.");
+  if(!qrOK)throw new Error("Không tải được thư viện tạo QR, vì vậy chưa thể tạo mã liên kết.");
+  if(!scanOK)throw new Error("Không tải được thư viện đọc QR trên điện thoại.");
+  return true;
+}
+function makeQR(data,size=6){try{if(typeof window.qrcode!=="function")return "";const qr=qrcode(0,"M");qr.addData(String(data));qr.make();return qr.createDataURL(size,0)}catch(e){console.error(e);return ""}}
 
 function renderRoster(){const list=$("rosterList");if(!db.students.length){list.innerHTML='<div class="status">Chưa có học sinh. Hãy nhập danh sách hoặc thêm từng em.</div>';return}list.innerHTML=db.students.map((s,i)=>'<div class="studentRow"><div class="num">'+String(s.no).padStart(2,"0")+'</div><div class="grow"><b>'+esc(s.name)+'</b><small>'+esc(s.className||"")+'</small></div><div class="rowActions"><button class="btn tiny" data-edit-student="'+i+'">Sửa</button><button class="btn tiny danger" data-delete-student="'+i+'">Xóa</button></div></div>').join("")}
 function clearStudentForm(){$("studentName").value="";$("studentNo").value="";$("studentClass").value=(db.students[0]?.className||"5A1")}
@@ -181,10 +211,53 @@ function makeSessionLink(){return location.origin+location.pathname+"?scan="+enc
 function updateConnectionQR(){if(!session||!peerId)return;const url=makeSessionLink();$("connectQR").src=makeQR(url,7);$("roomCode").textContent=room;$("connectionStatus").textContent=teacherConnections.size?"✓ ĐIỆN THOẠI ĐÃ LIÊN KẾT":"Quét QR bằng điện thoại giáo viên"}
 function sendStateTo(c){if(!c?.open||!session)return;c.send({type:"state",room,q:session.q,question:db.questions[session.q]||null,students:db.students.length,stamp:Date.now()})}
 function broadcastState(){teacherConnections.forEach(sendStateTo);updateConnectionQR()}
-function initTeacherPeer(){return new Promise((resolve,reject)=>{if(peer&&!peer.destroyed&&peer.open){resolve(peerId);return}peer=new Peer({host:"0.peerjs.com",port:443,path:"/",secure:true,reconnect:true,debug:0});let settled=false;peer.on("open",id=>{peerId=id;settled=true;updateConnectionQR();resolve(id)});peer.on("connection",conn=>setupTeacherConnection(conn));peer.on("disconnected",()=>{if($("connectionStatus"))$("connectionStatus").textContent="Mất kết nối máy chủ trung gian – đang nối lại…";try{peer.reconnect()}catch{}});peer.on("close",()=>{teacherConnections.clear()});peer.on("error",err=>{const msg=err?.message||err?.type||"Lỗi kết nối";$("connectionStatus").textContent=msg;if(!settled)reject(new Error(msg))})})}
-function setupTeacherConnection(conn){conn.on("open",()=>{teacherConnections.set(conn.peer,conn);sendStateTo(conn);updateConnectionQR()});conn.on("data",data=>{if(data?.type==="answer")receiveAnswer(data)});const gone=()=>{teacherConnections.delete(conn.peer);updateConnectionQR()};conn.on("close",gone);conn.on("error",gone)}
+function peerOptions(){return {debug:1,config:{iceServers:[{urls:"stun:stun.l.google.com:19302"},{urls:"stun:stun.cloudflare.com:3478"}],sdpSemantics:"unified-plan"}}}
+function initTeacherPeer(){return new Promise((resolve,reject)=>{
+  if(peer&&!peer.destroyed&&peer.open){resolve(peerId);return}
+  $("connectionStatus").textContent="Đang đăng ký máy tính với máy chủ kết nối…";
+  let settled=false;let watchdog=null;
+  try{peer=new Peer(undefined,peerOptions())}catch(e){reject(e);return}
+  const thisPeer=peer;
+  const fail=err=>{
+    if(settled)return;settled=true;if(watchdog)clearTimeout(watchdog);
+    const message=err?.message||String(err||"Không rõ nguyên nhân");
+    $("connectionStatus").textContent="CHƯA KẾT NỐI: "+message;
+    try{thisPeer.destroy()}catch{}
+    if(peer===thisPeer)peer=null;peerId="";
+    reject(new Error(message));
+  };
+  watchdog=setTimeout(()=>fail(new Error("Máy chủ chưa phản hồi sau 18 giây. Hãy bấm THỬ KẾT NỐI LẠI hoặc kiểm tra mạng.")),18000);
+  thisPeer.on("open",id=>{
+    if(settled)return;settled=true;clearTimeout(watchdog);peerId=id;
+    $("connectionStatus").textContent="Máy tính đã sẵn sàng. Hãy quét QR bằng điện thoại.";
+    updateConnectionQR();resolve(id);
+  });
+  thisPeer.on("connection",conn=>setupTeacherConnection(conn));
+  thisPeer.on("disconnected",()=>{$("connectionStatus").textContent="Máy chủ tạm ngắt; đang thử kết nối lại…";try{thisPeer.reconnect()}catch{}});
+  thisPeer.on("close",()=>{teacherConnections.clear();updateConnectionQR()});
+  thisPeer.on("error",err=>{
+    const message=err?.message||err?.type||"Lỗi máy chủ kết nối";
+    if(!settled)fail(new Error(message));
+    else $("connectionStatus").textContent="Lỗi PeerJS: "+message;
+  });
+})}
+function setupTeacherConnection(conn){$("connectionStatus").textContent="Điện thoại đã quét QR; đang thiết lập kênh dữ liệu…";const openTimer=setTimeout(()=>{if(!conn.open)$("connectionStatus").textContent="Điện thoại đã vào phiên nhưng chưa mở được kênh dữ liệu. Hãy thử cho hai thiết bị dùng cùng Wi-Fi rồi kết nối lại."},16000);conn.on("open",()=>{clearTimeout(openTimer);teacherConnections.set(conn.peer,conn);$("connectionStatus").textContent="✓ ĐIỆN THOẠI ĐÃ LIÊN KẾT";sendStateTo(conn);updateConnectionQR()});conn.on("data",data=>{if(data?.type==="answer")receiveAnswer(data)});const gone=()=>{clearTimeout(openTimer);teacherConnections.delete(conn.peer);updateConnectionQR()};conn.on("close",gone);conn.on("error",err=>{$("connectionStatus").textContent="Lỗi kênh dữ liệu: "+(err?.message||"hãy kết nối lại");gone()})}
 function receiveAnswer(data){if(!session||data.room!==room||data.q!==session.q)return;const no=+data.studentNo;const ans=String(data.answer||"").toUpperCase();if(!student(no)||!["A","B","C","D"].includes(ans))return;const q=db.questions[session.q];if(!q)return;if(!session.answers[session.q])session.answers[session.q]={};session.answers[session.q][no]={answer:ans,correct:ans===q.correct,time:new Date().toLocaleTimeString("vi-VN")};renderGame();teacherConnections.forEach(c=>{if(c.open)c.send({type:"ack",room,q:session.q,studentNo:no,answer:ans,correct:ans===q.correct})})}
-function startGame(){if(!db.questions.length){alert("Chưa có câu hỏi.");return}if(!db.students.length){alert("Chưa có danh sách học sinh.");return}room=uniqueRoom();session={q:0,answers:{},startedAt:Date.now()};show("gameScreen");initTeacherPeer().then(()=>{loadQuestion();startMusic()}).catch(err=>{show("home");alert("Không tạo được phiên kết nối: "+err.message)})}
+function startGame(){
+  if(!db.questions.length){alert("Chưa có câu hỏi.");return}
+  if(!db.students.length){alert("Chưa có danh sách học sinh.");return}
+  room=uniqueRoom();session={q:0,answers:{},startedAt:Date.now()};
+  show("gameScreen");$("roomCode").textContent=room;$("connectionStatus").textContent="Đang kiểm tra thư viện và đăng ký kết nối…";
+  $("connectQR").removeAttribute("src");
+  ensureCoreLibraries().then(()=>initTeacherPeer()).then(()=>{loadQuestion();startMusic()}).catch(err=>{$("connectionStatus").textContent="CHƯA KẾT NỐI: "+err.message;alert("Chưa tạo được kết nối. Chi tiết: "+err.message+"\n\nCó thể thử lại bằng nút THỬ KẾT NỐI LẠI.")});
+}
+function retryTeacherConnection(){
+  if(!session){alert("Hãy bắt đầu phiên trước.");return}
+  try{if(peer)peer.destroy()}catch{}
+  peer=null;peerId="";teacherConnections.clear();$("connectQR").removeAttribute("src");
+  $("connectionStatus").textContent="Đang thử kết nối lại…";
+  ensureCoreLibraries().then(()=>initTeacherPeer()).then(()=>{updateConnectionQR();loadQuestion()}).catch(err=>{$("connectionStatus").textContent="KẾT NỐI THẤT BẠI: "+err.message;alert("Vẫn chưa kết nối được: "+err.message)});
+}
 function finishGame(){if(!session)return;clearInterval(timerId);timerId=null;stopMusic();teacherConnections.forEach(c=>{try{c.close()}catch{}});teacherConnections.clear();renderResult();show("resultScreen")}
 function loadQuestion(){if(!session)return;clearInterval(timerId);renderGame();const q=db.questions[session.q];let sec=+(q?.time||db.settings.time);$("gameTimer").textContent=sec;timerId=setInterval(()=>{$("gameTimer").textContent=String(Math.max(0,--sec));if(sec<=0){clearInterval(timerId);timerId=null}},1000);broadcastState()}
 function prevQuestion(){if(session&&session.q>0){session.q--;loadQuestion()}}
@@ -203,9 +276,37 @@ function stopPhoneCamera(){if(scanTimer)clearTimeout(scanTimer);scanTimer=null;i
 async function scanLoop(){if(!phoneStream||scanBusy)return;if(!window.jsQR&&!("BarcodeDetector" in window)){scanTimer=setTimeout(scanLoop,500);return}scanBusy=true;try{const video=$("phoneVideo"),canvas=$("phoneCanvas"),ctx=canvas.getContext("2d",{willReadFrequently:true});if(video.readyState>=2&&video.videoWidth>0){const maxW=820;const scale=Math.min(1,maxW/video.videoWidth);canvas.width=Math.max(320,Math.round(video.videoWidth*scale));canvas.height=Math.max(240,Math.round(video.videoHeight*scale));ctx.drawImage(video,0,0,canvas.width,canvas.height);let codes=[];if("BarcodeDetector" in window){try{const detector=window._tdBarcodeDetector||(window._tdBarcodeDetector=new BarcodeDetector({formats:["qr_code"]}));codes=await detector.detect(canvas)}catch{}}if(!codes.length&&window.jsQR){const img=ctx.getImageData(0,0,canvas.width,canvas.height);const q=jsQR(img.data,img.width,img.height,{inversionAttempts:"attemptBoth"});if(q)codes=[q]}let accepted=0;for(const code of codes){const raw=code.rawValue||code.data||"";const no=parseStudentQR(raw);if(!no)continue;const answer=qrOrientation(code);if(!answer||!phoneConn?.open)continue;const key=no+"-"+answer+"-"+(phoneRoom);const now=Date.now();if(key===lastScannedKey&&now-lastScannedAt<1000)continue;lastScannedKey=key;lastScannedAt=now;phoneConn.send({type:"answer",room:phoneRoom,q:phoneQuestion,studentNo:no,answer});renderPhoneRow(no,answer);accepted++}$("phoneFound").textContent=accepted?"Đã gửi "+accepted+" thẻ về máy tính":"Đang tìm thẻ QR…"}}finally{scanBusy=false}scanTimer=setTimeout(scanLoop,db.settings.scan||DEFAULT_SCAN)}
 function renderPhoneRow(no,answer){const s=student(no);const d=document.createElement("div");d.innerHTML='<span>'+(esc(s?.name||("Thẻ "+String(no).padStart(2,"0"))))+'</span><b>'+answer+'</b>';$("phoneRows").prepend(d);while($("phoneRows").children.length>25)$("phoneRows").lastElementChild.remove()}
 let phoneQuestion=0;
-function phoneConnect(target,r){phoneTarget=target;phoneRoom=r;if(phonePeer){try{phonePeer.destroy()}catch{}}phoneConn=null;phonePeer=new Peer({host:"0.peerjs.com",port:443,path:"/",secure:true,reconnect:true,debug:0});$("phoneStatus").textContent="Đang kết nối với máy tính giáo viên…";$("startCamera").disabled=true;phonePeer.on("open",()=>{phoneConn=phonePeer.connect(target,{reliable:true,serialization:"json",label:"td-teacher-phone",metadata:{role:"teacherScanner",room:r}});phoneConn.on("open",()=>{$("phoneStatus").textContent="✓ ĐÃ LIÊN KẾT – có thể mở camera";$("startCamera").disabled=false;startPhoneCamera().catch(()=>{})});phoneConn.on("data",d=>{if(d?.type==="state"&&d.room===phoneRoom){phoneQuestion=+d.q||0;$("phoneSession").textContent="Phiên "+phoneRoom+" • Câu "+(phoneQuestion+1)+"/"+(db.questions.length||"?")}});phoneConn.on("close",()=>{$("phoneStatus").textContent="Mất kết nối – bấm KẾT NỐI LẠI";$("startCamera").disabled=true});phoneConn.on("error",()=>{$("phoneStatus").textContent="Kết nối lỗi – bấm KẾT NỐI LẠI";$("startCamera").disabled=true})});phonePeer.on("disconnected",()=>{try{phonePeer.reconnect()}catch{}});phonePeer.on("error",e=>{$("phoneStatus").textContent="Lỗi kết nối: "+(e?.message||e?.type||"không xác định")})}
-function reconnectPhone(){if(phoneTarget&&phoneRoom)phoneConnect(phoneTarget,phoneRoom)}
-function enterPhoneMode(){const p=new URLSearchParams(location.search);const target=p.get("scan"),r=p.get("room");if(!target||!r)return false;show("phoneScreen");phoneTarget=target;phoneRoom=r;$("phoneSession").textContent="Phiên "+r;$("startCamera").disabled=true;phoneConnect(target,r);return true}
+function phoneConnect(target,r){
+  phoneTarget=target;phoneRoom=r;
+  if(phonePeer){try{phonePeer.destroy()}catch{}}
+  phonePeer=null;phoneConn=null;$("startCamera").disabled=true;
+  $("phoneStatus").textContent="Đang tải thư viện và đăng ký kết nối…";
+  ensureCoreLibraries().then(()=>new Promise((resolve,reject)=>{
+    let settled=false;let connWatch=null;let peerWatch=null;
+    try{phonePeer=new Peer(undefined,peerOptions())}catch(e){reject(e);return}
+    const thisPeer=phonePeer;
+    peerWatch=setTimeout(()=>{if(!settled){settled=true;try{thisPeer.destroy()}catch{};$("phoneStatus").textContent="Máy chủ chưa phản hồi sau 18 giây. Kiểm tra Internet rồi bấm KẾT NỐI LẠI.";reject(new Error("Máy chủ kết nối chưa phản hồi."))}},18000);
+    thisPeer.on("open",()=>{
+      if(settled)return;settled=true;clearTimeout(peerWatch);
+      $("phoneStatus").textContent="Đã vào máy chủ; đang nối với máy tính giáo viên…";
+      phoneConn=thisPeer.connect(target,{reliable:true,serialization:"json",label:"td-teacher-phone",metadata:{role:"teacherScanner",room:r}});
+      connWatch=setTimeout(()=>{if(!phoneConn?.open)$("phoneStatus").textContent="Chưa mở được kênh dữ liệu. Hãy kiểm tra mạng hoặc thử để máy tính và điện thoại cùng Wi-Fi."},18000);
+      phoneConn.on("open",()=>{
+        clearTimeout(connWatch);$("phoneStatus").textContent="✓ ĐÃ LIÊN KẾT – bấm MỞ CAMERA";
+        $("startCamera").disabled=false;resolve(true);
+      });
+      phoneConn.on("data",d=>{if(d?.type==="state"&&d.room===phoneRoom){phoneQuestion=+d.q||0;$("phoneSession").textContent="Phiên "+phoneRoom+" • Câu "+(phoneQuestion+1)}});
+      phoneConn.on("close",()=>{$("phoneStatus").textContent="Mất kết nối – bấm KẾT NỐI LẠI";$("startCamera").disabled=true});
+      phoneConn.on("error",err=>{$("phoneStatus").textContent="Lỗi kênh dữ liệu: "+(err?.message||"thử kết nối lại");$("startCamera").disabled=true});
+    });
+    thisPeer.on("disconnected",()=>{try{thisPeer.reconnect()}catch{}});
+    thisPeer.on("error",err=>{
+      const msg=err?.message||err?.type||"lỗi PeerJS";
+      if(!settled){settled=true;clearTimeout(peerWatch);reject(new Error(msg))}
+      $("phoneStatus").textContent="Lỗi kết nối: "+msg;
+    });
+  })).catch(err=>{$("phoneStatus").textContent="CHƯA KẾT NỐI: "+err.message;$("startCamera").disabled=true});
+}function enterPhoneMode(){const p=new URLSearchParams(location.search);const target=p.get("scan"),r=p.get("room");if(!target||!r)return false;show("phoneScreen");phoneTarget=target;phoneRoom=r;$("phoneSession").textContent="Phiên "+r;$("startCamera").disabled=true;phoneConnect(target,r);return true}
 
 $("btnStart").onclick=startGame;
 $("btnCards").onclick=()=>show("cardsScreen");
@@ -223,9 +324,10 @@ $("rosterFile").onchange=e=>{const f=e.target.files?.[0];if(f)importRosterFile(f
 $("rosterList").onclick=e=>{const edit=e.target.closest("[data-edit-student]"),del=e.target.closest("[data-delete-student]");if(edit){const s=db.students[+edit.dataset.editStudent];if(!s)return;$("studentName").value=s.name;$("studentNo").value=s.no;$("studentClass").value=s.className||"5A1";window.scrollTo({top:0,behavior:"smooth"})}if(del){const i=+del.dataset.deleteStudent;if(confirm("Xóa học sinh này khỏi danh sách?")){db.students.splice(i,1);saveDB();renderRoster()}}};
 $("saveQuestion").onclick=saveQuestionForm;$("clearQuestion").onclick=clearQuestionForm;$("sampleQuestions").onclick=()=>{if(db.questions.length&&!confirm("Nạp lại 3 câu mẫu và thay bộ câu hỏi hiện tại?"))return;db.questions=structuredClone(SAMPLE_QUESTIONS);saveDB();renderQuestions()};$("exportQuestions").onclick=()=>downloadText("bo-cau-hoi.json",JSON.stringify(db.questions,null,2),"application/json;charset=utf-8");$("importQuestions").onclick=()=>$("questionFile").click();$("questionFile").onchange=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const arr=JSON.parse(String(r.result||""));if(!Array.isArray(arr))throw new Error();db.questions=arr.map(normalizeQuestion).filter(q=>q.text).slice(0,200);saveDB();renderQuestions();alert("Đã nhập "+db.questions.length+" câu hỏi.")}catch{alert("Tệp JSON không hợp lệ.")}e.target.value=""};r.readAsText(f,"utf-8")};
 $("questionList").onclick=e=>{const edit=e.target.closest("[data-edit-question]"),del=e.target.closest("[data-delete-question]");if(edit){editingQuestion=+edit.dataset.editQuestion;fillQuestionForm(db.questions[editingQuestion]);window.scrollTo({top:0,behavior:"smooth"})}if(del){const i=+del.dataset.deleteQuestion;if(confirm("Xóa câu hỏi này?")){db.questions.splice(i,1);if(editingQuestion===i)clearQuestionForm();else if(editingQuestion>i)editingQuestion--;saveDB();renderQuestions()}}};
+$("retryConnection").onclick=retryTeacherConnection;
 $("copyPhoneLink").onclick=async()=>{const u=makeSessionLink();try{await navigator.clipboard.writeText(u);alert("Đã sao chép link điện thoại.")}catch{prompt("Sao chép link:",u)}};$("openPhoneLink").onclick=()=>window.open(makeSessionLink(),"_blank");
 $("closeSettings").onclick=closeSettings;$("saveSettings").onclick=saveSettings;$("resetSettings").onclick=resetSettings;
-$("startCamera").onclick=()=>startPhoneCamera().catch(e=>alert(e.message));$("stopCamera").onclick=stopPhoneCamera;$("reconnectPhone").onclick=reconnectPhone;
+$("startCamera").onclick=()=>startPhoneCamera().catch(e=>{ $("phoneStatus").textContent=e.message; alert(e.message) });$("stopCamera").onclick=stopPhoneCamera;$("reconnectPhone").onclick=reconnectPhone;
 
 renderRoster();renderQuestions();refreshSettingsUI();
 enterPhoneMode();
